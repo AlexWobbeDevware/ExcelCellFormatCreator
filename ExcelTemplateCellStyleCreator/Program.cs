@@ -1,21 +1,19 @@
 ﻿using System;
-using System.IO; // For file operations
+using System.Globalization;
+using System.IO;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 
 class Program
 {
+
     static void Main(string[] args)
     {
         string filePath = @"c:\temp\ExcelStyleTemplate.xlsx";
+        var culture = CultureInfo.CurrentCulture.TwoLetterISOLanguageName;
 
-        // Delete the file if it already exists
-        if (File.Exists(filePath))
-        {
-            File.Delete(filePath);
-            Console.WriteLine($"Existing file '{filePath}' deleted.");
-        }
+        DeleteFileIfExists(filePath, culture);
 
         string lastFontName = "Calibri";
         double lastFontSize = 11;
@@ -23,67 +21,36 @@ class Program
         string lastBgColor = "FFFFFF";
         bool lastIsBold = false;
         bool lastIsItalic = false;
+        string lastBorderSelection = "lrtb";
+        HorizontalAlignmentValues lastHorizontalAlignment = HorizontalAlignmentValues.Left;
+        VerticalAlignmentValues lastVerticalAlignment = VerticalAlignmentValues.Center;
+        bool lastWrapText = false;
 
         using (SpreadsheetDocument document = SpreadsheetDocument.Create(filePath, SpreadsheetDocumentType.Workbook))
         {
-            // Add a WorkbookPart to the document.
             WorkbookPart workbookPart = document.AddWorkbookPart();
             workbookPart.Workbook = new Workbook();
 
-            // Add a WorksheetPart to the WorkbookPart.
             WorksheetPart worksheetPart = workbookPart.AddNewPart<WorksheetPart>();
             worksheetPart.Worksheet = new Worksheet(new SheetData());
 
-            // Add Sheets to the Workbook.
             Sheets sheets = workbookPart.Workbook.AppendChild(new Sheets());
-
-            // Append a new worksheet and associate it with the workbook.
             Sheet sheet = new Sheet() { Id = workbookPart.GetIdOfPart(worksheetPart), SheetId = 1, Name = "Styles" };
             sheets.Append(sheet);
 
             Worksheet worksheet = new Worksheet();
-
-            // Gitterlinien ausblenden
-            SheetViews sheetViews = new SheetViews();
-            SheetView sheetView = new SheetView() { WorkbookViewId = (UInt32Value)0U, ShowGridLines = false };
-            sheetViews.Append(sheetView);
-            worksheet.Append(sheetViews);
+            HideGridLines(worksheet);
 
             SheetData sheetData = new SheetData();
             worksheet.Append(sheetData);
 
-            // Create and add styles
             WorkbookStylesPart stylesPart = workbookPart.AddNewPart<WorkbookStylesPart>();
             Stylesheet stylesheet = new Stylesheet();
 
-            Fonts fonts = new Fonts(
-                        new Font( // Default font
-                            new FontSize() { Val = 11 },
-                            new Color() { Theme = 1 },
-                            new FontName() { Val = "Calibri" },
-                            new FontFamilyNumbering() { Val = 2 },
-                            new FontScheme() { Val = FontSchemeValues.Minor }
-                        )
-                    );
-
-            Fills fills = new Fills(
-                new Fill(new PatternFill() { PatternType = PatternValues.None }), // Default fill
-                new Fill(new PatternFill(new ForegroundColor() { Rgb = new HexBinaryValue("FFFFFF") }) { PatternType = PatternValues.Solid }) // Background color
-            );
-
-            Borders borders = new Borders(
-                new Border( // Default border
-                    new LeftBorder(),
-                    new RightBorder(),
-                    new TopBorder(),
-                    new BottomBorder(),
-                    new DiagonalBorder()
-                )
-            );
-
-            CellFormats cellFormats = new CellFormats(
-                new CellFormat() // Default cell format
-            );
+            Fonts fonts = CreateDefaultFonts();
+            Fills fills = CreateDefaultFills();
+            Borders borders = CreateDefaultBorders();
+            CellFormats cellFormats = new CellFormats(new CellFormat());
 
             bool continueAdding = true;
             uint rowIndex = 2;
@@ -91,202 +58,356 @@ class Program
 
             while (continueAdding)
             {
-                Console.WriteLine("Neuen Stil hinzufügen:");
+                Console.WriteLine(culture == "de" ? "Neuen Stil hinzufügen:" : "Add a new style:");
+                Console.WriteLine(culture == "de" ? "Beispielhafte Farben: Rot: FF0000 | Grün: 00FF00 | Blau: 0000FF | Gelb: FFFF00 | Schwarz: 000000 | Weiß: FFFFFF"
+                                                  : "Example colors: Red: FF0000 | Green: 00FF00 | Blue: 0000FF | Yellow: FFFF00 | Black: 000000 | White: FFFFFF");
 
-                // Beispielhafte Farbcodes anzeigen
-                Console.WriteLine("Beispielhafte Farben: Rot: FF0000 | Grün: 00FF00 | Blau: 0000FF | Gelb: FFFF00 | Schwarz: 000000 | Weiß: FFFFFF");
+                lastFontName = GetUserInput(culture, "Schriftart", "Font name", lastFontName);
+                lastFontSize = double.Parse(GetUserInput(culture, "Schriftgröße", "Font size", lastFontSize.ToString()));
+                lastFontColor = GetUserInput(culture, "Schriftfarbe", "Font color", lastFontColor);
+                lastIsBold = GetUserInput(culture, "Fett (y/n)", "Bold (y/n)", lastIsBold ? "y" : "n").ToLower() == "y";
+                lastIsItalic = GetUserInput(culture, "Kursiv (y/n)", "Italic (y/n)", lastIsItalic ? "y" : "n").ToLower() == "y";
+                lastBgColor = GetUserInput(culture, "Hintergrundfarbe", "Background color", lastBgColor);
+                lastBorderSelection = GetUserInput(culture, "Rahmen auswählen (left, right, top, bottom)", "Select borders (left, right, top, bottom)", lastBorderSelection);
 
-                // Schriftart und Schriftgröße
-                Console.WriteLine();
-                Console.Write($"Schriftart (Standard: {lastFontName}): ");
-                string fontName = Console.ReadLine() ?? string.Empty;
-                if (string.IsNullOrWhiteSpace(fontName))
+                ConfigureFont(lastFontName, lastFontSize, lastFontColor, lastIsBold, lastIsItalic, fonts);
+                ConfigureFills(lastBgColor, fills);
+                Border border = ConfigureBorder(culture, lastBorderSelection);
+                bool configureAlignment = GetUserInput(culture, "Textausrichtung und Umbruch konfigurieren", "Configure text alignment and wrapping", "n").ToLower() == "y";
+                if (configureAlignment)
                 {
-                    fontName = lastFontName;
+                    lastHorizontalAlignment = GetHorizontalAlignment(culture, lastHorizontalAlignment);
+                    lastVerticalAlignment = GetVerticalAlignment(culture, lastVerticalAlignment);
+                    lastWrapText = GetUserInput(culture, "Textumbruch aktivieren", "Enable text wrapping", lastWrapText ? "y" : "n").ToLower() == "y";
                 }
-                lastFontName = fontName;
+                uint borderId = GetOrCreateBorderId(borders, border);
 
-                Console.WriteLine();
-                Console.Write($"Schriftgröße (Standard: {lastFontSize}): ");
-                string fontSizeInput = Console.ReadLine() ?? string.Empty;
-                double fontSize = string.IsNullOrWhiteSpace(fontSizeInput) ? lastFontSize : double.Parse(fontSizeInput);
-                lastFontSize = fontSize;
-
-                // Schriftfarbe
-                Console.WriteLine();
-                Console.Write($"Schriftfarbe (Standard: {lastFontColor} für Schwarz): ");
-                string fontColor = Console.ReadLine() ?? string.Empty;
-                if (string.IsNullOrWhiteSpace(fontColor))
-                {
-                    fontColor = lastFontColor;
-                }
-                lastFontColor = fontColor;
-
-                // Fett und Kursiv
-                Console.WriteLine();
-                Console.Write($"Fett (y/n, Standard: {(lastIsBold ? "y" : "n")}): ");
-                string isBoldInput = Console.ReadLine() ?? string.Empty;
-                bool isBold = string.IsNullOrWhiteSpace(isBoldInput) ? lastIsBold : isBoldInput.ToLower() == "y";
-                lastIsBold = isBold;
-
-                Console.WriteLine();
-                Console.Write($"Kursiv (y/n, Standard: {(lastIsItalic ? "y" : "n")}): ");
-                string isItalicInput = Console.ReadLine() ?? string.Empty;
-                bool isItalic = string.IsNullOrWhiteSpace(isItalicInput) ? lastIsItalic : isItalicInput.ToLower() == "y";
-                lastIsItalic = isItalic;
-
-                // Hintergrundfarbe
-                Console.WriteLine();
-                Console.Write($"Hintergrundfarbe (Standard: {lastBgColor}): ");
-                string bgColor = Console.ReadLine() ?? string.Empty;
-                if (string.IsNullOrWhiteSpace(bgColor))
-                {
-                    bgColor = lastBgColor;
-                }
-                lastBgColor = bgColor;
-
-                // Rahmen (oulr für oben, unten, links, rechts; Standard: oulr): 
-                Console.WriteLine();
-                Console.Write("Rahmen (oulr für oben, unten, links, rechts; Standard: oulr, n für keine Rahmen): ");
-                string borderInput = (Console.ReadLine() ?? string.Empty).ToLower();
-                if (string.IsNullOrWhiteSpace(borderInput))
-                {
-                    borderInput = "oulr";
-                }
-
-                // Erstelle den Font
-                Font font = new Font();
-                font.Append(new FontSize() { Val = fontSize });
-                font.Append(new Color() { Rgb = new HexBinaryValue() { Value = fontColor } });
-                font.Append(new FontName() { Val = fontName });
-                if (isBold)
-                {
-                    font.Append(new Bold());
-                }
-                if (isItalic)
-                {
-                    font.Append(new Italic());
-                }
-                fonts.Append(font);
-
-                // Erstelle die Füllung
-                Fill fill = new Fill(
-                    new PatternFill(
-                        new ForegroundColor() { Rgb = new HexBinaryValue(bgColor) }
-                    )
-                    { PatternType = PatternValues.Solid }
-                );
-                fills.Append(fill);
-
-                // Erstelle den Rahmen
-                Border border = new Border();
-
-                if (borderInput != "n")
-                {
-                    if (borderInput.Contains("l"))
-                        border.Append(new LeftBorder() { Style = BorderStyleValues.Thin });
-                    if (borderInput.Contains("r"))
-                        border.Append(new RightBorder() { Style = BorderStyleValues.Thin });
-                    if (borderInput.Contains("o"))
-                        border.Append(new TopBorder() { Style = BorderStyleValues.Thin });
-                    if (borderInput.Contains("u"))
-                        border.Append(new BottomBorder() { Style = BorderStyleValues.Thin });
-                }
-
-                // Check if the border already exists
-                uint borderId = 0;
-                bool borderExists = false;
-                foreach (Border existingBorder in borders.Elements<Border>())
-                {
-                    if (AreBordersEqual(existingBorder, border))
-                    {
-                        borderExists = true;
-                        break;
-                    }
-                    borderId++;
-                }
-
-                if (!borderExists)
-                {
-                    borders.Append(border);
-                    borderId = (uint)borders.Count() - 1; // Update borderId to the new border's index
-                }
-
-                // Erstelle das Zellformat
-                CellFormat cellFormat = new CellFormat()
-                {
-                    FontId = (UInt32)(fonts.Count() - 1),
-                    FillId = (UInt32)(fills.Count() - 1),
-                    BorderId = borderId,
-                    ApplyFont = true,
-                    ApplyFill = true,
-                    ApplyBorder = true
-                };
+                CellFormat cellFormat = CreateCellFormat(fonts, fills, borderId, configureAlignment, lastHorizontalAlignment, lastVerticalAlignment, lastWrapText);
                 cellFormats.Append(cellFormat);
 
-                // Füge eine Zelle mit dem StyleIndex ein
-                Row row = new Row() { RowIndex = rowIndex };
-                sheetData.Append(row);
+                InsertCellIntoSheet(sheetData, cellFormats, ref rowIndex, ref columnIndex);
 
-                Cell cell = new Cell()
-                {
-                    CellReference = $"{GetColumnName(columnIndex)}{rowIndex}",
-                    CellValue = new CellValue("StyleIndex: " + (cellFormats.Count() - 1).ToString()),
-                    DataType = CellValues.Number,
-                    StyleIndex = (UInt32)(cellFormats.Count() - 1)
-                };
-
-                row.Append(cell);
-
-                // Aktualisiere Zeilen- und Spaltenindex
-                columnIndex += 2;
-                if (columnIndex > 10)
-                {
-                    columnIndex = 1;
-                    rowIndex += 2;
-                }
-
-                Console.WriteLine();
-                Console.Write("Weiteren Stil hinzufügen? (y/n, Standard: y): ");
-                string continueInput = Console.ReadLine() ?? string.Empty;
-                continueAdding = string.IsNullOrWhiteSpace(continueInput) || continueInput.ToLower() == "y";
+                continueAdding = GetUserInput(culture, "Weiteren Stil hinzufügen", "Add another style (y/n)", "y").ToLower() == "y";
             }
 
-            // Stylesheet zusammenstellen und speichern
-            stylesheet.Fonts = new Fonts();
-            foreach (var font in fonts.Elements<Font>())
-            {
-                stylesheet.Fonts.Append(font.CloneNode(true));
-            }
-
-            stylesheet.Fills = new Fills();
-            foreach (var fill in fills.Elements<Fill>())
-            {
-                stylesheet.Fills.Append(fill.CloneNode(true));
-            }
-
-            stylesheet.Borders = new Borders();
-            foreach (var border in borders.Elements<Border>())
-            {
-                stylesheet.Borders.Append(border.CloneNode(true));
-            }
-
-            stylesheet.CellFormats = new CellFormats();
-            foreach (var cellFormat in cellFormats.Elements<CellFormat>())
-            {
-                stylesheet.CellFormats.Append(cellFormat.CloneNode(true));
-            }
-
-            stylesPart.Stylesheet = stylesheet;
-            stylesPart.Stylesheet.Save();
-
+            SaveStylesheet(stylesPart, stylesheet, fonts, fills, borders, cellFormats);
             worksheetPart.Worksheet = worksheet;
             worksheetPart.Worksheet.Save();
-
             workbookPart.Workbook.Save();
         }
 
-        Console.WriteLine("Excel-Datei wurde erfolgreich erstellt: " + filePath);
+        Console.WriteLine(culture == "de" ? $"Excel-Datei wurde erfolgreich erstellt: {filePath}" : $"Excel file successfully created: {filePath}");
+    }
+
+    private static void ConfigureFills(string lastBgColor, Fills fills)
+    {
+
+        // Erstelle die Füllung
+        Fill fill = new Fill(
+            new PatternFill(
+                new ForegroundColor() { Rgb = new HexBinaryValue(lastBgColor) }
+            )
+            { PatternType = PatternValues.Solid }
+        );
+        fills.Append(fill);
+    }
+
+    private static void ConfigureFont(string lastFontName, double lastFontSize, string lastFontColor, bool lastIsBold, bool lastIsItalic, Fonts fonts)
+    {
+        // Erstelle den Font
+        Font font = new Font();
+        font.Append(new FontSize() { Val = lastFontSize });
+        font.Append(new Color() { Rgb = new HexBinaryValue() { Value = lastFontColor } });
+        font.Append(new FontName() { Val = lastFontName });
+        if (lastIsBold)
+        {
+            font.Append(new Bold());
+        }
+        if (lastIsItalic)
+        {
+            font.Append(new Italic());
+        }
+        fonts.Append(font);
+    }
+
+    private static void DeleteFileIfExists(string filePath, string culture)
+    {
+        if (File.Exists(filePath))
+        {
+            File.Delete(filePath);
+            Console.WriteLine(culture == "de" ? $"Vorhandene Datei '{filePath}' gelöscht." : $"Existing file '{filePath}' deleted.");
+        }
+    }
+
+    private static void HideGridLines(Worksheet worksheet)
+    {
+        SheetViews sheetViews = new SheetViews();
+        SheetView sheetView = new SheetView() { WorkbookViewId = (UInt32Value)0U, ShowGridLines = false };
+        sheetViews.Append(sheetView);
+        worksheet.Append(sheetViews);
+    }
+
+    private static Fonts CreateDefaultFonts()
+    {
+        return new Fonts(
+            new Font(
+                new FontSize() { Val = 11 },
+                new Color() { Theme = 1 },
+                new FontName() { Val = "Calibri" },
+                new FontFamilyNumbering() { Val = 2 },
+                new FontScheme() { Val = FontSchemeValues.Minor }
+            )
+        );
+    }
+
+    private static Fills CreateDefaultFills()
+    {
+        return new Fills(
+            new Fill(new PatternFill() { PatternType = PatternValues.None }),
+            new Fill(new PatternFill(new ForegroundColor() { Rgb = new HexBinaryValue("FFFFFF") }) { PatternType = PatternValues.Solid })
+        );
+    }
+
+    private static Borders CreateDefaultBorders()
+    {
+        return new Borders(
+            new Border(
+                new LeftBorder(),
+                new RightBorder(),
+                new TopBorder(),
+                new BottomBorder(),
+                new DiagonalBorder()
+            )
+        );
+    }
+
+    private static string GetUserInput(string culture, string promptDe, string promptEn, string defaultValue)
+    {
+        Console.WriteLine();
+        Console.Write(culture == "de" ? $"{promptDe} (Standard: {defaultValue}): " : $"{promptEn} (Default: {defaultValue}): ");
+        string input = Console.ReadLine() ?? string.Empty;
+        return string.IsNullOrWhiteSpace(input) ? defaultValue : input;
+    }
+
+    private static Border ConfigureBorder(string culture, string borderSelection)
+    {
+        Border border = new Border();
+
+        if (borderSelection.Contains("l"))
+            border.Append(new LeftBorder(new Color() { Rgb = new HexBinaryValue("000000") }) { Style = BorderStyleValues.Thin });
+        if (borderSelection.Contains("r"))
+            border.Append(new RightBorder(new Color() { Rgb = new HexBinaryValue("000000") }) { Style = BorderStyleValues.Thin });
+        if (borderSelection.Contains("t"))
+            border.Append(new TopBorder(new Color() { Rgb = new HexBinaryValue("000000") }) { Style = BorderStyleValues.Thin });
+        if (borderSelection.Contains("b"))
+            border.Append(new BottomBorder(new Color() { Rgb = new HexBinaryValue("000000") }) { Style = BorderStyleValues.Thin });
+
+        if (!string.IsNullOrWhiteSpace(borderSelection))
+        {
+            bool configureBorders = GetUserInput(culture, "Rahmen im Detail konfigurieren", "Configure borders in detail", "n").ToLower() == "y";
+            if (configureBorders)
+            {
+                ConfigureDetailedBorders(culture, border, borderSelection);
+            }
+        }
+
+        return border;
+    }
+
+    private static void ConfigureDetailedBorders(string culture, Border border, string borderSelection)
+    {
+        if (borderSelection.Contains("l"))
+            border.LeftBorder = ConfigureLeftBorder(culture);
+        if (borderSelection.Contains("r"))
+            border.RightBorder = ConfigureRightBorder(culture);
+        if (borderSelection.Contains("t"))
+            border.TopBorder = ConfigureTopBorder(culture);
+        if (borderSelection.Contains("b"))
+            border.BottomBorder = ConfigureBottomBorder(culture);
+    }
+
+    private static LeftBorder ConfigureLeftBorder(string culture)
+    {
+        Console.Write(culture == "de" ? $"Links Rahmenstil wählen (thin = 1/medium = 2/thick = 3/dashed = 4/dotted = 5, Standard: thin): "
+                                      : $"Left border style (thin = 1/medium = 2/thick = 3/dashed = 4/dotted = 5, Default: thin): ");
+        string borderStyleInput = Console.ReadLine()?.ToLower() ?? "1";
+        BorderStyleValues borderStyle = borderStyleInput switch
+        {
+            "2" => BorderStyleValues.Medium,
+            "3" => BorderStyleValues.Thick,
+            "4" => BorderStyleValues.Dashed,
+            "5" => BorderStyleValues.Dotted,
+            _ => BorderStyleValues.Thin,
+        };
+
+        Console.Write(culture == "de" ? $"Links Rahmenfarbe (Hex-Wert, Standard: 000000 für Schwarz): "
+                                      : $"Left border color (Hex value, Default: 000000 for Black): ");
+        string borderColor = Console.ReadLine() ?? "000000";
+
+        return new LeftBorder(new Color() { Rgb = new HexBinaryValue(borderColor) }) { Style = borderStyle };
+    }
+
+    private static RightBorder ConfigureRightBorder(string culture)
+    {
+        Console.Write(culture == "de" ? $"Rechts Rahmenstil wählen (thin = 1/medium = 2/thick = 3/dashed = 4/dotted = 5, Standard: thin): "
+                                      : $"Right border style (thin = 1/medium = 2/thick = 3/dashed = 4/dotted = 5, Default: thin): ");
+        string borderStyleInput = Console.ReadLine()?.ToLower() ?? "1";
+        BorderStyleValues borderStyle = borderStyleInput switch
+        {
+            "2" => BorderStyleValues.Medium,
+            "3" => BorderStyleValues.Thick,
+            "4" => BorderStyleValues.Dashed,
+            "5" => BorderStyleValues.Dotted,
+            _ => BorderStyleValues.Thin,
+        };
+
+        Console.Write(culture == "de" ? $"Rechts Rahmenfarbe (Hex-Wert, Standard: 000000 für Schwarz): "
+                                      : $"Right border color (Hex value, Default: 000000 for Black): ");
+        string borderColor = Console.ReadLine() ?? "000000";
+
+        return new RightBorder(new Color() { Rgb = new HexBinaryValue(borderColor) }) { Style = borderStyle };
+    }
+
+    private static TopBorder ConfigureTopBorder(string culture)
+    {
+        Console.Write(culture == "de" ? $"Oben Rahmenstil wählen (thin = 1/medium = 2/thick = 3/dashed = 4/dotted = 5, Standard: thin): "
+                                      : $"Top border style (thin = 1/medium = 2/thick = 3/dashed = 4/dotted = 5, Default: thin): ");
+        string borderStyleInput = Console.ReadLine()?.ToLower() ?? "1";
+        BorderStyleValues borderStyle = borderStyleInput switch
+        {
+            "2" => BorderStyleValues.Medium,
+            "3" => BorderStyleValues.Thick,
+            "4" => BorderStyleValues.Dashed,
+            "5" => BorderStyleValues.Dotted,
+            _ => BorderStyleValues.Thin,
+        };
+
+        Console.Write(culture == "de" ? $"Oben Rahmenfarbe (Hex-Wert, Standard: 000000 für Schwarz): "
+                                      : $"Top border color (Hex value, Default: 000000 for Black): ");
+        string borderColor = Console.ReadLine() ?? "000000";
+
+        return new TopBorder(new Color() { Rgb = new HexBinaryValue(borderColor) }) { Style = borderStyle };
+    }
+
+    private static BottomBorder ConfigureBottomBorder(string culture)
+    {
+        Console.Write(culture == "de" ? $"Unten Rahmenstil wählen (thin = 1/medium = 2/thick = 3/dashed = 4/dotted = 5, Standard: thin): "
+                                      : $"Bottom border style (thin = 1/medium = 2/thick = 3/dashed = 4/dotted = 5, Default: thin): ");
+        string borderStyleInput = Console.ReadLine()?.ToLower() ?? "1";
+        BorderStyleValues borderStyle = borderStyleInput switch
+        {
+            "2" => BorderStyleValues.Medium,
+            "3" => BorderStyleValues.Thick,
+            "4" => BorderStyleValues.Dashed,
+            "5" => BorderStyleValues.Dotted,
+            _ => BorderStyleValues.Thin,
+        };
+
+        Console.Write(culture == "de" ? $"Unten Rahmenfarbe (Hex-Wert, Standard: 000000 für Schwarz): "
+                                      : $"Bottom border color (Hex value, Default: 000000 for Black): ");
+        string borderColor = Console.ReadLine() ?? "000000";
+
+        return new BottomBorder(new Color() { Rgb = new HexBinaryValue(borderColor) }) { Style = borderStyle };
+    }
+
+    private static HorizontalAlignmentValues GetHorizontalAlignment(string culture, HorizontalAlignmentValues defaultAlignment)
+    {
+        Console.WriteLine();
+        Console.Write(culture == "de" ? $"Horizontale Ausrichtung (l=links, c=zentrisch, r=rechts, Standard: {defaultAlignment.ToString().ToLower()[0]}): "
+                                      : $"Horizontal alignment (l=left, c=center, r=right, Default: {defaultAlignment.ToString().ToLower()[0]}): ");
+        string horizontalAlignmentInput = Console.ReadLine() ?? defaultAlignment.ToString().ToLower()[0].ToString();
+        return horizontalAlignmentInput switch
+        {
+            "c" => HorizontalAlignmentValues.Center,
+            "r" => HorizontalAlignmentValues.Right,
+            _ => HorizontalAlignmentValues.Left,
+        };
+    }
+
+    private static VerticalAlignmentValues GetVerticalAlignment(string culture, VerticalAlignmentValues defaultAlignment)
+    {
+        Console.WriteLine();
+        Console.Write(culture == "de" ? $"Vertikale Ausrichtung (t=oben, m=mittig, b=unten, Standard: {defaultAlignment.ToString().ToLower()[0]}): "
+                                      : $"Vertical alignment (t=top, m=middle, b=bottom, Default: {defaultAlignment.ToString().ToLower()[0]}): ");
+        string verticalAlignmentInput = Console.ReadLine() ?? defaultAlignment.ToString().ToLower()[0].ToString();
+        return verticalAlignmentInput switch
+        {
+            "t" => VerticalAlignmentValues.Top,
+            "b" => VerticalAlignmentValues.Bottom,
+            _ => VerticalAlignmentValues.Center,
+        };
+    }
+
+    private static uint GetOrCreateBorderId(Borders borders, Border border)
+    {
+        uint borderId = 0;
+        bool borderExists = false;
+        foreach (Border existingBorder in borders.Elements<Border>())
+        {
+            if (AreBordersEqual(existingBorder, border))
+            {
+                borderExists = true;
+                break;
+            }
+            borderId++;
+        }
+
+        if (!borderExists)
+        {
+            borders.Append(border);
+            borderId = (uint)borders.Count() - 1;
+        }
+
+        return borderId;
+    }
+
+    private static CellFormat CreateCellFormat(Fonts fonts, Fills fills, uint borderId, bool configureAlignment, HorizontalAlignmentValues horizontalAlignment, VerticalAlignmentValues verticalAlignment, bool wrapText)
+    {
+        CellFormat cellFormat = new CellFormat()
+        {
+            FontId = (UInt32)(fonts.Count() - 1),
+            FillId = (UInt32)(fills.Count() - 1),
+            BorderId = borderId,
+            ApplyFont = true,
+            ApplyFill = true,
+            ApplyBorder = true,
+            ApplyAlignment = configureAlignment
+        };
+
+        if (configureAlignment)
+        {
+            cellFormat.Alignment = new Alignment()
+            {
+                Horizontal = horizontalAlignment,
+                Vertical = verticalAlignment,
+                WrapText = wrapText
+            };
+        }
+
+        return cellFormat;
+    }
+
+    private static void InsertCellIntoSheet(SheetData sheetData, CellFormats cellFormats, ref uint rowIndex, ref uint columnIndex)
+    {
+        Row row = new Row() { RowIndex = rowIndex };
+        sheetData.Append(row);
+
+        Cell cell = new Cell()
+        {
+            CellReference = $"{GetColumnName(columnIndex)}{rowIndex}",
+            CellValue = new CellValue((cellFormats.Count() - 1).ToString()),
+            DataType = CellValues.Number,
+            StyleIndex = (UInt32)(cellFormats.Count() - 1)
+        };
+
+        row.Append(cell);
+
+        columnIndex += 2;
+        if (columnIndex > 10)
+        {
+            columnIndex = 1;
+            rowIndex += 2;
+        }
     }
 
     static string GetColumnName(uint index)
@@ -314,5 +435,35 @@ class Program
                border1.TopBorder?.Style == border2.TopBorder?.Style &&
                border1.BottomBorder?.Style == border2.BottomBorder?.Style &&
                border1.DiagonalBorder?.Style == border2.DiagonalBorder?.Style;
+    }
+
+    private static void SaveStylesheet(WorkbookStylesPart stylesPart, Stylesheet stylesheet, Fonts fonts, Fills fills, Borders borders, CellFormats cellFormats)
+    {
+        stylesheet.Fonts = new Fonts();
+        foreach (var font in fonts.Elements<Font>())
+        {
+            stylesheet.Fonts.Append(font.CloneNode(true));
+        }
+
+        stylesheet.Fills = new Fills();
+        foreach (var fill in fills.Elements<Fill>())
+        {
+            stylesheet.Fills.Append(fill.CloneNode(true));
+        }
+
+        stylesheet.Borders = new Borders();
+        foreach (var border in borders.Elements<Border>())
+        {
+            stylesheet.Borders.Append(border.CloneNode(true));
+        }
+
+        stylesheet.CellFormats = new CellFormats();
+        foreach (var cellFormat in cellFormats.Elements<CellFormat>())
+        {
+            stylesheet.CellFormats.Append(cellFormat.CloneNode(true));
+        }
+
+        stylesPart.Stylesheet = stylesheet;
+        stylesPart.Stylesheet.Save();
     }
 }
