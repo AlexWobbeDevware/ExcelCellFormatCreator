@@ -32,25 +32,18 @@ namespace ExcelTemplateCellStyleCreator
                 )
             );
 
-            //if (fonts.Count == null)
-            //{
-            //    fonts.Count = (uint)fonts.ChildElements.Count;
-            //}
-
             return fonts;
         }
 
         private Fills CreateDefaultFills()
         {
             var fills = new Fills(
-                new Fill(new PatternFill() { PatternType = PatternValues.None }),
-                new Fill(new PatternFill(new ForegroundColor() { Rgb = new HexBinaryValue("FFFFFF") }) { PatternType = PatternValues.Solid })
-            );
-
-            //if (fills.Count == null)
-            //{
-            //    fills.Count = (uint)fills.ChildElements.Count;
-            //}
+                 new Fill(new PatternFill() { PatternType = PatternValues.None }),
+                 new Fill(new PatternFill(
+                     new ForegroundColor() { Rgb = new HexBinaryValue("FFFFFFFF") },
+                     new BackgroundColor() { Indexed = 64 }) // Indexed 64 is the default background color (white)
+                 { PatternType = PatternValues.Solid })
+             );
 
             return fills;
         }
@@ -74,7 +67,9 @@ namespace ExcelTemplateCellStyleCreator
             {
                 Font existingFont = (Font)Fonts.ElementAt((int)i);
                 if (existingFont.FontSize.Val == fontSize &&
-                    existingFont.Color != null && existingFont.Color.Rgb != null && existingFont.Color.Rgb.Value == fontColor &&
+                    existingFont.Color != null && 
+                    existingFont.Color.Rgb != null && 
+                    existingFont.Color.Rgb.Value == fontColor &&
                     existingFont.FontName.Val == fontName &&
                     existingFont.Bold != null == isBold &&
                     existingFont.Italic != null == isItalic)
@@ -96,7 +91,6 @@ namespace ExcelTemplateCellStyleCreator
                 font.Append(new Italic());
             }
             Fonts.Append(font);
-            //Fonts.Count = (uint)Fonts.ChildElements.Count;
             return (uint)Fonts.ChildElements.Count - 1;
         }
 
@@ -106,8 +100,11 @@ namespace ExcelTemplateCellStyleCreator
             {
                 Fill existingFill = (Fill)Fills.ElementAt((int)i);
                 PatternFill patternFill = existingFill.PatternFill;
-                if (patternFill != null && patternFill.ForegroundColor != null && patternFill.ForegroundColor.Rgb != null &&
-                    patternFill.ForegroundColor.Rgb.Value == bgColor && patternFill.PatternType == PatternValues.Solid)
+                if (patternFill != null && 
+                    patternFill.ForegroundColor != null &&
+                    patternFill.ForegroundColor.Rgb != null &&
+                    patternFill.ForegroundColor.Rgb.Value == bgColor &&
+                    patternFill.PatternType == PatternValues.Solid)
                 {
                     return i;
                 }
@@ -115,12 +112,12 @@ namespace ExcelTemplateCellStyleCreator
 
             var fill = new Fill(
                 new PatternFill(
-                    new ForegroundColor() { Rgb = new HexBinaryValue(bgColor) }
+                    new ForegroundColor() { Rgb = new HexBinaryValue(bgColor) },
+                    new BackgroundColor() { Rgb = new HexBinaryValue(bgColor) }
                 )
                 { PatternType = PatternValues.Solid }
             );
             Fills.Append(fill);
-            //Fills.Count = (uint)Fills.ChildElements.Count;
             return (uint)Fills.ChildElements.Count - 1;
         }
 
