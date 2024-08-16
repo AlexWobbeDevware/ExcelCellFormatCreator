@@ -32,10 +32,10 @@ namespace ExcelTemplateCellStyleCreator
                 )
             );
 
-            if (fonts.Count == null)
-            {
-                fonts.Count = (uint)fonts.ChildElements.Count;
-            }
+            //if (fonts.Count == null)
+            //{
+            //    fonts.Count = (uint)fonts.ChildElements.Count;
+            //}
 
             return fonts;
         }
@@ -43,13 +43,14 @@ namespace ExcelTemplateCellStyleCreator
         private Fills CreateDefaultFills()
         {
             var fills = new Fills(
+                new Fill(new PatternFill() { PatternType = PatternValues.None }),
                 new Fill(new PatternFill(new ForegroundColor() { Rgb = new HexBinaryValue("FFFFFF") }) { PatternType = PatternValues.Solid })
             );
 
-            if (fills.Count == null)
-            {
-                fills.Count = (uint)fills.ChildElements.Count;
-            }
+            //if (fills.Count == null)
+            //{
+            //    fills.Count = (uint)fills.ChildElements.Count;
+            //}
 
             return fills;
         }
@@ -69,7 +70,7 @@ namespace ExcelTemplateCellStyleCreator
 
         public uint ConfigureFont(string fontName, double fontSize, string fontColor, bool isBold, bool isItalic)
         {
-            for (uint i = 0; i < Fonts.Count; i++)
+            for (uint i = 0; i < Fonts.ChildElements.Count; i++)
             {
                 Font existingFont = (Font)Fonts.ElementAt((int)i);
                 if (existingFont.FontSize.Val == fontSize &&
@@ -95,13 +96,13 @@ namespace ExcelTemplateCellStyleCreator
                 font.Append(new Italic());
             }
             Fonts.Append(font);
-            Fonts.Count = (uint)Fonts.ChildElements.Count;
+            //Fonts.Count = (uint)Fonts.ChildElements.Count;
             return (uint)Fonts.ChildElements.Count - 1;
         }
 
         public uint ConfigureFills(string bgColor)
         {
-            for (uint i = 0; i < Fills.Count; i++)
+            for (uint i = 0; i < Fills.ChildElements.Count; i++)
             {
                 Fill existingFill = (Fill)Fills.ElementAt((int)i);
                 PatternFill patternFill = existingFill.PatternFill;
@@ -119,8 +120,8 @@ namespace ExcelTemplateCellStyleCreator
                 { PatternType = PatternValues.Solid }
             );
             Fills.Append(fill);
-            Fills.Count = (uint)Fills.ChildElements.Count;
-            return (uint)Fills.Count - 1;
+            //Fills.Count = (uint)Fills.ChildElements.Count;
+            return (uint)Fills.ChildElements.Count - 1;
         }
 
         public Border ConfigureBorder(string borderSelection)

@@ -59,13 +59,13 @@ class Program
                     Console.WriteLine(culture == "de" ? "Beispielhafte Farben: Rot: FF0000 | Grün: 00FF00 | Blau: 0000FF | Gelb: FFFF00 | Schwarz: 000000 | Weiß: FFFFFF"
                                                       : "Example colors: Red: FF0000 | Green: 00FF00 | Blue: 0000FF | Yellow: FFFF00 | Black: 000000 | White: FFFFFF");
 
-                    lastFontName = UserInputValidator.ValidateFontName(GetUserInput(culture, "Schriftart", "Font name", lastFontName));
-                    lastFontSize = double.Parse(UserInputValidator.ValidateFontSize(GetUserInput(culture, "Schriftgröße", "Font size", lastFontSize.ToString())));
-                    lastFontColor = UserInputValidator.ValidateHexColor(GetUserInput(culture, "Schriftfarbe", "Font color", lastFontColor));
+                    lastFontName = UserInputValidator.ValidateFontName(GetUserInput(culture, "Schriftart", "Font name", lastFontName), culture);
+                    lastFontSize = double.Parse(UserInputValidator.ValidateFontSize(GetUserInput(culture, "Schriftgröße", "Font size", lastFontSize.ToString()), culture));
+                    lastFontColor = UserInputValidator.ValidateHexColor(GetUserInput(culture, "Schriftfarbe", "Font color", lastFontColor), culture);
                     lastIsBold = UserInputValidator.ValidateYesNoInput(GetUserInput(culture, "Fett (y/n)", "Bold (y/n)", lastIsBold ? "y" : "n"), culture);
                     lastIsItalic = UserInputValidator.ValidateYesNoInput(GetUserInput(culture, "Kursiv (y/n)", "Italic (y/n)", lastIsItalic ? "y" : "n"), culture);
-                    lastBgColor = UserInputValidator.ValidateHexColor(GetUserInput(culture, "Hintergrundfarbe", "Background color", lastBgColor));
-                    lastBorderSelection = UserInputValidator.ValidateBorderSelection(GetUserInput(culture, "Rahmen auswählen (left, right, top, bottom)", "Select borders (left, right, top, bottom)", lastBorderSelection));
+                    lastBgColor = UserInputValidator.ValidateHexColor(GetUserInput(culture, "Hintergrundfarbe", "Background color", lastBgColor), culture);
+                    lastBorderSelection = UserInputValidator.ValidateBorderSelection(GetUserInput(culture, "Rahmen auswählen (left, right, top, bottom)", "Select borders (left, right, top, bottom)", lastBorderSelection), culture);
 
                     uint fontId = styleManager.ConfigureFont(lastFontName, lastFontSize, lastFontColor, lastIsBold, lastIsItalic);
                     uint fillId = styleManager.ConfigureFills(lastBgColor);
@@ -73,8 +73,8 @@ class Program
                     bool configureAlignment = UserInputValidator.ValidateYesNoInput(GetUserInput(culture, "Textausrichtung und Umbruch konfigurieren", "Configure text alignment and wrapping", "n"), culture);
                     if (configureAlignment)
                     {
-                        lastHorizontalAlignment = GetHorizontalAlignment(culture, lastHorizontalAlignment);
-                        lastVerticalAlignment = GetVerticalAlignment(culture, lastVerticalAlignment);
+                        lastHorizontalAlignment = UserInputValidator.GetHorizontalAlignment(GetUserInput(culture, "Horizontale Ausrichtung (L: Links, C: Zentrum, R: Rechts)", "Horizontal alignment (L: Left, C: Center, R: Right)", lastHorizontalAlignment.ToString().Substring(0, 1)), culture);
+                        lastVerticalAlignment = UserInputValidator.GetVerticalAlignment(GetUserInput(culture, "Vertikale Ausrichtung (T: Oben, C: Mitte, B: Unten)", "Vertical alignment (T: Top, C: Center, B: Bottom)", lastVerticalAlignment.ToString().Substring(0, 1)), culture);
                         lastWrapText = UserInputValidator.ValidateYesNoInput(GetUserInput(culture, "Textumbruch aktivieren", "Enable text wrapping", lastWrapText ? "y" : "n"), culture);
                     }
                     uint borderId = styleManager.GetOrCreateBorderId(border);
@@ -113,60 +113,12 @@ class Program
         worksheet.Append(sheetViews);
     }
 
-
-    private static Borders CreateDefaultBorders()
-    {
-        return new Borders(
-            new Border(
-                new LeftBorder(),
-                new RightBorder(),
-                new TopBorder(),
-                new BottomBorder(),
-                new DiagonalBorder()
-            )
-        );
-    }
-
     private static string GetUserInput(string culture, string promptDe, string promptEn, string defaultValue)
     {
         Console.WriteLine();
         Console.Write(culture == "de" ? $"{promptDe} (Standard: {defaultValue}): " : $"{promptEn} (Default: {defaultValue}): ");
         string input = Console.ReadLine() ?? string.Empty;
         return string.IsNullOrWhiteSpace(input) ? defaultValue : input;
-    }
-
-    private static Border ConfigureBorder(string culture, string borderSelection)
-    {
-        Border border = new Border();
-        if (borderSelection.Contains("l")) border.Append(new LeftBorder(new Color() { Auto = true }) { Style = BorderStyleValues.Thin });
-        if (borderSelection.Contains("r")) border.Append(new RightBorder(new Color() { Auto = true }) { Style = BorderStyleValues.Thin });
-        if (borderSelection.Contains("t")) border.Append(new TopBorder(new Color() { Auto = true }) { Style = BorderStyleValues.Thin });
-        if (borderSelection.Contains("b")) border.Append(new BottomBorder(new Color() { Auto = true }) { Style = BorderStyleValues.Thin });
-        return border;
-    }
-
-    private static HorizontalAlignmentValues GetHorizontalAlignment(string culture, HorizontalAlignmentValues lastAlignment)
-    {
-        string userInput = GetUserInput(culture, "Horizontale Ausrichtung (Links, Zentrum, Rechts)", "Horizontal alignment (Left, Center, Right)", lastAlignment.ToString());
-        return userInput.ToLower() switch
-        {
-            "links" or "left" => HorizontalAlignmentValues.Left,
-            "zentrum" or "center" => HorizontalAlignmentValues.Center,
-            "rechts" or "right" => HorizontalAlignmentValues.Right,
-            _ => lastAlignment,
-        };
-    }
-
-    private static VerticalAlignmentValues GetVerticalAlignment(string culture, VerticalAlignmentValues lastAlignment)
-    {
-        string userInput = GetUserInput(culture, "Vertikale Ausrichtung (Oben, Mitte, Unten)", "Vertical alignment (Top, Center, Bottom)", lastAlignment.ToString());
-        return userInput.ToLower() switch
-        {
-            "oben" or "top" => VerticalAlignmentValues.Top,
-            "mitte" or "center" => VerticalAlignmentValues.Center,
-            "unten" or "bottom" => VerticalAlignmentValues.Bottom,
-            _ => lastAlignment,
-        };
     }
 
     private static void InsertCellIntoSheet(SheetData sheetData, CellFormats cellFormats, ref uint rowIndex, ref uint columnIndex)
