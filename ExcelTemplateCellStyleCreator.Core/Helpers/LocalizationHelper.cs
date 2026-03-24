@@ -1,4 +1,4 @@
-namespace ExcelTemplateCellStyleCreator
+namespace ExcelTemplateCellStyleCreator.Core
 {
     /// <summary>
     /// Provides simple culture-based string selection for German and English UI messages.

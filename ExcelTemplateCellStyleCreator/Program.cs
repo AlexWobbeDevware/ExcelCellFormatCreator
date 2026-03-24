@@ -2,17 +2,24 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using ExcelTemplateCellStyleCreator;
+using ExcelTemplateCellStyleCreator.Core;
 using System.Globalization;
-using static ExcelTemplateCellStyleCreator.LocalizationHelper;
+using static ExcelTemplateCellStyleCreator.Core.LocalizationHelper;
 
 class Program
 {
     static void Main(string[] args)
     {
-        string filePath = @"c:\temp\ExcelStyleTemplate.xlsx";
+        string filePath = StyleConstants.DefaultFilePath;
         var culture = CultureInfo.CurrentCulture.TwoLetterISOLanguageName;
 
-        FileManager.DeleteFileIfExists(filePath, culture);
+        if (!FileManager.DeleteFileIfExists(filePath))
+        {
+            Console.WriteLine(Localize(culture,
+                $"Fehler beim Löschen der Datei: {filePath}",
+                $"Error deleting file: {filePath}"));
+            return;
+        }
 
         try
         {

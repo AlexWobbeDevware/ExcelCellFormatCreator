@@ -2,7 +2,7 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 
-namespace ExcelTemplateCellStyleCreator
+namespace ExcelTemplateCellStyleCreator.Core
 {
     /// <summary>
     /// Encapsulates text alignment settings for a cell format.

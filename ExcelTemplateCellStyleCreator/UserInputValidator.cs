@@ -1,6 +1,7 @@
 using DocumentFormat.OpenXml.Spreadsheet;
+using ExcelTemplateCellStyleCreator.Core;
 using System.Drawing.Text;
-using static ExcelTemplateCellStyleCreator.LocalizationHelper;
+using static ExcelTemplateCellStyleCreator.Core.LocalizationHelper;
 
 namespace ExcelTemplateCellStyleCreator
 {
@@ -64,7 +65,7 @@ namespace ExcelTemplateCellStyleCreator
         /// <returns>A valid 6-digit hex color string.</returns>
         public static string ValidateHexColor(string colorInput, string culture)
         {
-            while (!System.Text.RegularExpressions.Regex.IsMatch(colorInput, @"^[0-9A-Fa-f]{6}$"))
+            while (!HexColorValidator.IsValid(colorInput))
             {
                 Console.Write(Localize(culture,
                     "Ungültige Farbe. Bitte geben Sie einen gültigen 6-stelligen Hex-Farbcode ein: ",
